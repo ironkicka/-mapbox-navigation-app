@@ -22,6 +22,22 @@ const layerStyle: LayerProps = {
   }
 };
 
+// 実験的なAPIのためTypeScriptに型が存在しないためここで記入
+declare let DeviceOrientationEvent: {
+  requestPermission?: () => string;
+};
+
+const checkDevicePositionPermission = async () => {
+  if (window === undefined) return false;
+  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+    // iOSの場合許可が必要
+    const permissionState = await DeviceOrientationEvent.requestPermission();
+
+    return permissionState === 'granted';
+  }
+  return true;
+};
+
 const NavigationTemplateContent: FC<Props> = () => {
   const {naviMap} = useMap();
   const [profile, setProfile] = useState<'driving' | 'walking'>('driving');
@@ -53,6 +69,7 @@ const NavigationTemplateContent: FC<Props> = () => {
   };
 
   useEffect(() => {
+    checkDevicePositionPermission();
     getCurrentPosition();
   }, []);
 
