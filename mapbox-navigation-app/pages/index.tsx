@@ -1,9 +1,13 @@
-import { useEffect, useState, FC } from 'react';
-import Map, {Layer, LayerProps, MapProvider, Source, useMap} from 'react-map-gl';
-import type { Feature, FeatureCollection } from 'geojson';
+import {useEffect, useState, FC} from 'react';
+import Map, {Layer, LayerProps, MapProvider, Marker, NavigationControl, Source, useMap} from 'react-map-gl';
+import type {Feature, FeatureCollection} from 'geojson';
+import * as icon from '../public/arrow.png'
+import Image from 'next/Image'
+//これがないとmarkerがちゃんと描画されない
+import 'mapbox-gl/dist/mapbox-gl.css';
+import Pin from "../components/pin";
 
-type Props = Readonly<{
-}>;
+type Props = Readonly<{}>;
 
 const layerStyle: LayerProps = {
   id: 'route',
@@ -16,37 +20,18 @@ const layerStyle: LayerProps = {
     'line-color': '#3887be',
     'line-width': 5,
     'line-opacity': 0.75,
-  },
-  beforeId:'point2'
-};
-
-const pointStyle: LayerProps = {
-  id: 'point',
-  type: 'circle',
-  paint: {
-    'circle-radius': 10,
-    'circle-color': '#3887be',
-  },
-};
-
-const pointStyle2: LayerProps = {
-  id: 'point2',
-  type: 'circle',
-  paint: {
-    'circle-radius': 10,
-    'circle-color': '#ff001d',
-  },
+  }
 };
 
 const NavigationTemplateContent: FC<Props> = () => {
-  const { naviMap } = useMap();
+  const {naviMap} = useMap();
   const [profile, setProfile] = useState<'driving' | 'walking'>('driving');
-  const [startPoint, setStartPoint] = useState<FeatureCollection>();
-  const [endPoint, setEndPoint] = useState<FeatureCollection>();
+  const [start, setStart] = useState<{ lat: number; lng: number } | null>(null);
+  const [end, setEnd] = useState<{ lat: number; lng: number } | null>(null);
   const [routeGeoJson, setRouteGeoJson] = useState<Feature>();
   const getCurrentPosition = () => {
     navigator.geolocation.getCurrentPosition(position => {
-        const { latitude, longitude } = position.coords;
+        const {latitude, longitude} = position.coords;
         const start = {
           type: 'FeatureCollection' as const,
           features: [
@@ -60,11 +45,12 @@ const NavigationTemplateContent: FC<Props> = () => {
             },
           ],
         };
-        setStartPoint(start);
+        console.log({lat: latitude, lng: longitude})
+        setStart({lat: latitude, lng: longitude})
         // naviMap?.flyTo({center:{lat:position.latitude,lng:position.longitude}})
       },
-      (error)=>console.log,
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+      (error) => console.log,
+      {enableHighAccuracy: true, timeout: 10000, maximumAge: 0});
   };
 
   useEffect(() => {
@@ -72,37 +58,20 @@ const NavigationTemplateContent: FC<Props> = () => {
   }, []);
 
   const onClick = (event: mapboxgl.MapLayerMouseEvent) => {
-    const coords = [event.lngLat.lng, event.lngLat.lat];
-    const end = {
-      type: 'FeatureCollection',
-      features: [
-        {
-          type: 'Feature',
-          properties: {},
-          geometry: {
-            type: 'Point',
-            coordinates: coords,
-          },
-        },
-      ],
-    } as FeatureCollection;
-    setEndPoint(end);
+    setEnd({lat: event.lngLat.lat, lng: event.lngLat.lng})
   };
 
   useEffect(() => {
-    if(!naviMap) return;
+    if (!naviMap) return;
 
-    if (startPoint?.features[0].geometry.type === 'Point' && endPoint?.features[0].geometry.type === 'Point') {
-      const startLng = startPoint.features[0].geometry.coordinates[0];
-      const startLat = startPoint.features[0].geometry.coordinates[1];
-      const endLng = endPoint.features[0].geometry.coordinates[0];
-      const endLat = endPoint.features[0].geometry.coordinates[1];
-      naviMap.flyTo({center:{lng:startLng,lat:startLat},zoom:18});
+    if (start && end) {
+
+      naviMap.flyTo({center: {lng: start.lng, lat: start.lat}, zoom: 18});
 
       (async () => {
         const query = await fetch(
-          `https://api.mapbox.com/directions/v5/mapbox/${profile}/${startLng},${startLat};${endLng},${endLat}?steps=true&geometries=geojson&access_token=${process.env.NEXT_PUBLIC_MAP_BOX_TOKEN}`,
-          { method: 'GET' },
+          `https://api.mapbox.com/directions/v5/mapbox/${profile}/${start.lng},${start.lat};${end.lng},${end.lat}?steps=true&geometries=geojson&access_token=${process.env.NEXT_PUBLIC_MAP_BOX_TOKEN}`,
+          {method: 'GET'},
         );
         const json = await query.json();
         const data = json.routes[0];
@@ -118,7 +87,7 @@ const NavigationTemplateContent: FC<Props> = () => {
         setRouteGeoJson(geojson);
       })();
     }
-  }, [profile,startPoint,endPoint]);
+  }, [profile, start, end]);
 
   return (
     <div>
@@ -134,26 +103,27 @@ const NavigationTemplateContent: FC<Props> = () => {
           latitude: 35.7340486,
           zoom: 14,
         }}
-        style={{ width: '100%', height: '100vh' }}
+        style={{width: '100%', height: '100vh'}}
         mapStyle={process.env.NEXT_PUBLIC_MAP_BOX_STYLE}
         mapboxAccessToken={process.env.NEXT_PUBLIC_MAP_BOX_TOKEN}
         onClick={onClick}
       >
+        {start &&
+        <Marker key={'startPoint'} longitude={start.lng} latitude={start.lat} anchor="center">
+          <Pin/>
+        </Marker>
+        }
+        {end &&
+        <Marker key={'endPoint'} longitude={end.lng} latitude={end.lat} anchor="center">
+          <Pin/>
+        </Marker>
+        }
         {routeGeoJson && (
           <Source id='myMap' type='geojson' data={routeGeoJson}>
             <Layer {...layerStyle} />
           </Source>
         )}
-        {startPoint &&
-        <Source id='start' type='geojson' data={startPoint}>
-          <Layer {...pointStyle} />
-        </Source>
-        }
-        {endPoint && (
-          <Source id='end' type='geojson' data={endPoint}>
-            <Layer {...pointStyle2} />
-          </Source>
-        )}
+        <NavigationControl />
       </Map>
     </div>
   );
