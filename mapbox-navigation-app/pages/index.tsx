@@ -1,4 +1,4 @@
-import {useEffect, useState, FC, useRef} from 'react';
+import {useEffect, useState, FC, useRef, useCallback} from 'react';
 import Map, {Layer, LayerProps, MapProvider, Marker, NavigationControl, Source, useMap} from 'react-map-gl';
 import type {Feature} from 'geojson';
 //これがないとmarkerがちゃんと描画されない
@@ -120,15 +120,34 @@ const NavigationTemplateContent: FC<Props> = () => {
       window.removeEventListener('orientationchange', handleOrientation);
     };
   }, [])
+  const currentPositionPollingRef = useRef<NodeJS.Timeout | null>();
 
+  const updateCurrentUserPosition = useCallback(async () => {
+    const currentPosition = await getCurrentPosition();
+    console.log(currentPosition)
+    setCurrentUserPosition(currentPosition)
+  },[setCurrentUserPosition])
 
+  const clearUpdatePositionPollingRef = useCallback(() => {
+    if (currentPositionPollingRef.current === null) return;
+    clearInterval(currentPositionPollingRef.current);
+    currentPositionPollingRef.current = null;
+  }, []);
+
+  const setCurrentPositionPolling = useCallback(() => {
+    clearUpdatePositionPollingRef();
+    updateCurrentUserPosition();
+    currentPositionPollingRef.current = setInterval(() => {
+      updateCurrentUserPosition();
+    }, 1000);
+  }, [clearUpdatePositionPollingRef, updateCurrentUserPosition])
 
   const onStartNavigation = ()=>{
     checkDevicePositionPermission()
     getCurrentPosition().then((res)=>{
       setStart(res)
-      setCurrentUserPosition(res)
     })
+    setCurrentPositionPolling()
     setIsNavigationMode(true)
   }
 
@@ -142,6 +161,11 @@ const NavigationTemplateContent: FC<Props> = () => {
     setRouteGeoJson(undefined)
     naviMap?.resetNorth().setZoom(14);
   }
+
+  useEffect(()=>{
+    if(!currentUserPosition) return;
+    naviMap?.setCenter(currentUserPosition)
+  },[currentUserPosition])
 
   return (
     <div>
@@ -180,8 +204,8 @@ const NavigationTemplateContent: FC<Props> = () => {
           </Source>
         )}
         <NavigationControl />
-        {start &&
-        <CurrentPositionMarker position={{lat:start.lat,lng:start.lng}}/>
+        {currentUserPosition &&
+        <CurrentPositionMarker position={{lat:currentUserPosition.lat,lng:currentUserPosition.lng}}/>
         }
       </Map>
     </div>
