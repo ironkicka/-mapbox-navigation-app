@@ -207,7 +207,9 @@ const NavigationTemplateContent: FC<Props> = () => {
         )}
         <NavigationControl />
         {currentUserPosition &&
-        <CurrentPositionMarker position={{lat:currentUserPosition.lat,lng:currentUserPosition.lng}}/>
+        <Marker key={'endPoint'} longitude={currentUserPosition.lng} latitude={currentUserPosition.lat} anchor="center">
+          <Pin color={'blue'}/>
+        </Marker>
         }
       </Map>
     </div>
