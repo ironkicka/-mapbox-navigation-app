@@ -1,4 +1,4 @@
-import {useEffect, useState, FC} from 'react';
+import {useEffect, useState, FC, useRef} from 'react';
 import Map, {Layer, LayerProps, MapProvider, Marker, NavigationControl, Source, useMap} from 'react-map-gl';
 import type {Feature, FeatureCollection} from 'geojson';
 import * as icon from '../public/arrow.png'
@@ -6,6 +6,7 @@ import Image from 'next/Image'
 //これがないとmarkerがちゃんと描画されない
 import 'mapbox-gl/dist/mapbox-gl.css';
 import Pin from "../components/pin";
+import CurrentPositionMarker from "../components/currentMarker";
 
 type Props = Readonly<{}>;
 
@@ -67,7 +68,6 @@ const NavigationTemplateContent: FC<Props> = () => {
     if (start && end) {
 
       naviMap.flyTo({center: {lng: start.lng, lat: start.lat}, zoom: 18});
-
       (async () => {
         const query = await fetch(
           `https://api.mapbox.com/directions/v5/mapbox/${profile}/${start.lng},${start.lat};${end.lng},${end.lat}?steps=true&geometries=geojson&access_token=${process.env.NEXT_PUBLIC_MAP_BOX_TOKEN}`,
@@ -88,6 +88,39 @@ const NavigationTemplateContent: FC<Props> = () => {
       })();
     }
   }, [profile, start, end]);
+  const [rotation, setRotation] = useState(0);
+
+  useEffect(()=>{
+    naviMap?.rotateTo(-(rotation));
+  },[rotation])
+
+  const angleRef = useRef(0);
+  useEffect(() => {
+    if (!window || !window.DeviceOrientationEvent) return () => {};
+
+    const handleMotionEvent = (event: DeviceOrientationEvent) => {
+      // @ts-ignore
+      const alpha = event.webkitCompassHeading ? event.webkitCompassHeading : event.alpha;
+      setRotation(alpha + angleRef.current);
+    };
+
+    const handleOrientation = () => {
+      // eslint-disable-next-line no-restricted-globals
+      let angle = screen && screen.orientation && screen.orientation.angle;
+      if (angle === undefined) {
+        angle = Number(window.orientation); // iOS用
+      }
+      angleRef.current = angle;
+    };
+
+    window.addEventListener('deviceorientation', handleMotionEvent);
+    window.addEventListener('orientationchange', handleOrientation);
+
+    return () => {
+      window.removeEventListener('deviceorientation', handleMotionEvent);
+      window.removeEventListener('orientationchange', handleOrientation);
+    };
+  }, [])
 
   return (
     <div>
@@ -124,6 +157,9 @@ const NavigationTemplateContent: FC<Props> = () => {
           </Source>
         )}
         <NavigationControl />
+        {start &&
+        <CurrentPositionMarker position={{lat:start.lat,lng:start.lng}}/>
+        }
       </Map>
     </div>
   );
