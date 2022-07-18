@@ -44,33 +44,22 @@ const NavigationTemplateContent: FC<Props> = () => {
   const [start, setStart] = useState<{ lat: number; lng: number } | null>(null);
   const [end, setEnd] = useState<{ lat: number; lng: number } | null>(null);
   const [routeGeoJson, setRouteGeoJson] = useState<Feature>();
-  const getCurrentPosition = () => {
-    navigator.geolocation.getCurrentPosition(position => {
-        const {latitude, longitude} = position.coords;
-        const start = {
-          type: 'FeatureCollection' as const,
-          features: [
-            {
-              type: 'Feature' as const,
-              properties: {},
-              geometry: {
-                type: 'Point' as const,
-                coordinates: [longitude, latitude],
-              },
-            },
-          ],
-        };
-        console.log({lat: latitude, lng: longitude})
-        setStart({lat: latitude, lng: longitude})
-        // naviMap?.flyTo({center:{lat:position.latitude,lng:position.longitude}})
-      },
-      (error) => console.log,
-      {enableHighAccuracy: true, timeout: 10000, maximumAge: 0});
+  const [currentUserPosition, setCurrentUserPosition] = useState<{ lat: number; lng: number } | null>(null);
+
+  const getCurrentPosition = ():Promise<{lat: number, lng: number}> => {
+    return new Promise<{lat: number, lng: number}>((resolve,reject)=>{
+      navigator.geolocation.getCurrentPosition(position => {
+          const {latitude, longitude} = position.coords;
+          resolve({lat: latitude, lng: longitude})
+        },
+        (error) => {
+          reject(error)
+        },
+        {enableHighAccuracy: true, timeout: 10000, maximumAge: 0});
+    })
+
   };
 
-  useEffect(() => {
-    getCurrentPosition();
-  }, []);
 
   const onClick = (event: mapboxgl.MapLayerMouseEvent) => {
     setEnd({lat: event.lngLat.lat, lng: event.lngLat.lng})
@@ -102,11 +91,8 @@ const NavigationTemplateContent: FC<Props> = () => {
       })();
     }
   }, [profile, start, end]);
-  const [rotation, setRotation] = useState(0);
 
-  useEffect(()=>{
-    naviMap?.rotateTo(rotation);
-  },[rotation])
+  const [rotation, setRotation] = useState(0);
 
   const angleRef = useRef(0);
   useEffect(() => {
@@ -136,13 +122,30 @@ const NavigationTemplateContent: FC<Props> = () => {
     };
   }, [])
 
+
+
+  const [isNavigationMode,setIsNavigationMode] = useState(false)
+  const onStartNavigation = ()=>{
+    checkDevicePositionPermission()
+    getCurrentPosition().then((res)=>{
+      setStart(res)
+      setCurrentUserPosition(res)
+    })
+    setIsNavigationMode(true)
+  }
+
+  useEffect(()=>{
+    if(!isNavigationMode) return;
+    naviMap?.rotateTo(rotation);
+  },[isNavigationMode,rotation])
+
   return (
     <div>
       <div>
         <button onClick={() => setProfile('walking')}>歩き</button>
         <button onClick={() => setProfile('driving')}>車</button>
         <span>{profile}</span>
-        <button onClick={() => checkDevicePositionPermission()}>許可</button>
+        <button disabled={!end} onClick={onStartNavigation}>ナビゲーション開始</button>
       </div>
       <Map
         id='naviMap'
