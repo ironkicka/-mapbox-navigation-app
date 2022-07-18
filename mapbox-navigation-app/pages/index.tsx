@@ -45,6 +45,7 @@ const NavigationTemplateContent: FC<Props> = () => {
   const [end, setEnd] = useState<{ lat: number; lng: number } | null>(null);
   const [routeGeoJson, setRouteGeoJson] = useState<Feature>();
   const [currentUserPosition, setCurrentUserPosition] = useState<{ lat: number; lng: number } | null>(null);
+  const [isNavigationMode,setIsNavigationMode] = useState(false)
 
   const getCurrentPosition = ():Promise<{lat: number, lng: number}> => {
     return new Promise<{lat: number, lng: number}>((resolve,reject)=>{
@@ -66,10 +67,8 @@ const NavigationTemplateContent: FC<Props> = () => {
   };
 
   useEffect(() => {
-    if (!naviMap) return;
-
+    if (!naviMap||!isNavigationMode) return;
     if (start && end) {
-
       naviMap.flyTo({center: {lng: start.lng, lat: start.lat}, zoom: 18});
       (async () => {
         const query = await fetch(
@@ -90,7 +89,7 @@ const NavigationTemplateContent: FC<Props> = () => {
         setRouteGeoJson(geojson);
       })();
     }
-  }, [profile, start, end]);
+  }, [profile, isNavigationMode,start,end]);
 
   const [rotation, setRotation] = useState(0);
 
@@ -124,7 +123,6 @@ const NavigationTemplateContent: FC<Props> = () => {
 
 
 
-  const [isNavigationMode,setIsNavigationMode] = useState(false)
   const onStartNavigation = ()=>{
     checkDevicePositionPermission()
     getCurrentPosition().then((res)=>{
@@ -141,6 +139,7 @@ const NavigationTemplateContent: FC<Props> = () => {
 
   const onFinishNavigation = ()=>{
     setIsNavigationMode(false)
+    setRouteGeoJson(undefined)
     naviMap?.resetNorth().setZoom(14);
   }
 
@@ -150,7 +149,7 @@ const NavigationTemplateContent: FC<Props> = () => {
         <button onClick={() => setProfile('walking')}>歩き</button>
         <button onClick={() => setProfile('driving')}>車</button>
         <span>{profile}</span>
-        <button disabled={!end} onClick={onStartNavigation}>ナビゲーション開始</button>
+        <button disabled={!end||isNavigationMode} onClick={onStartNavigation}>ナビゲーション開始</button>
         <button disabled={!isNavigationMode} onClick={onFinishNavigation}>ナビゲーション終了</button>
       </div>
       <Map
