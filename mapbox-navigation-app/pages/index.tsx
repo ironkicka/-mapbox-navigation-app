@@ -73,7 +73,6 @@ const NavigationTemplateContent: FC<Props> = () => {
   }, []);
 
   const onClick = (event: mapboxgl.MapLayerMouseEvent) => {
-    checkDevicePositionPermission();
     setEnd({lat: event.lngLat.lat, lng: event.lngLat.lng})
   };
 
