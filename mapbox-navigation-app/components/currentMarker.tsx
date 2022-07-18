@@ -1,7 +1,7 @@
 import {Marker} from "react-map-gl";
 import {useEffect, useRef, useState} from "react";
 import * as icon from '../public/vercel.svg'
-import Image from 'next/Image'
+import Image from 'next/image'
 interface Props {
   position: {lat:number;lng:number;};
 }

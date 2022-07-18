@@ -1,8 +1,6 @@
 import {useEffect, useState, FC, useRef} from 'react';
 import Map, {Layer, LayerProps, MapProvider, Marker, NavigationControl, Source, useMap} from 'react-map-gl';
-import type {Feature, FeatureCollection} from 'geojson';
-import * as icon from '../public/arrow.png'
-import Image from 'next/Image'
+import type {Feature} from 'geojson';
 //これがないとmarkerがちゃんと描画されない
 import 'mapbox-gl/dist/mapbox-gl.css';
 import Pin from "../components/pin";
