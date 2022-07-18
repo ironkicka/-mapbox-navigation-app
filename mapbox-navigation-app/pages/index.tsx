@@ -63,6 +63,7 @@ const NavigationTemplateContent: FC<Props> = () => {
 
 
   const onClick = (event: mapboxgl.MapLayerMouseEvent) => {
+    if(isNavigationMode) return;
     setEnd({lat: event.lngLat.lat, lng: event.lngLat.lng})
   };
 
@@ -158,6 +159,7 @@ const NavigationTemplateContent: FC<Props> = () => {
 
   const onFinishNavigation = ()=>{
     setIsNavigationMode(false)
+    clearUpdatePositionPollingRef();
     setRouteGeoJson(undefined)
     naviMap?.resetNorth().setZoom(14);
   }
