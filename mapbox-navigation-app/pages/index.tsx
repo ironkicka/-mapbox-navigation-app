@@ -50,6 +50,7 @@ const NavigationTemplateContent: FC<Props> = () => {
   const getCurrentPosition = ():Promise<{lat: number, lng: number}> => {
     return new Promise<{lat: number, lng: number}>((resolve,reject)=>{
       navigator.geolocation.getCurrentPosition(position => {
+          console.log(position.coords.accuracy)
           const {latitude, longitude} = position.coords;
           resolve({lat: latitude, lng: longitude})
         },
@@ -207,7 +208,7 @@ const NavigationTemplateContent: FC<Props> = () => {
         )}
         <NavigationControl />
         {currentUserPosition &&
-        <Marker key={'endPoint'} longitude={currentUserPosition.lng} latitude={currentUserPosition.lat} anchor="center">
+        <Marker key={'currentPosition'} longitude={currentUserPosition.lng} latitude={currentUserPosition.lat} anchor="center">
           <Pin color={'blue'}/>
         </Marker>
         }
