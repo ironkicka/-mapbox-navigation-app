@@ -139,6 +139,11 @@ const NavigationTemplateContent: FC<Props> = () => {
     naviMap?.rotateTo(rotation);
   },[isNavigationMode,rotation])
 
+  const onFinishNavigation = ()=>{
+    setIsNavigationMode(false)
+    naviMap?.resetNorth().setZoom(14);
+  }
+
   return (
     <div>
       <div>
@@ -146,6 +151,7 @@ const NavigationTemplateContent: FC<Props> = () => {
         <button onClick={() => setProfile('driving')}>車</button>
         <span>{profile}</span>
         <button disabled={!end} onClick={onStartNavigation}>ナビゲーション開始</button>
+        <button disabled={!isNavigationMode} onClick={onFinishNavigation}>ナビゲーション終了</button>
       </div>
       <Map
         id='naviMap'
