@@ -106,7 +106,7 @@ const NavigationTemplateContent: FC<Props> = () => {
   const [rotation, setRotation] = useState(0);
 
   useEffect(()=>{
-    naviMap?.rotateTo(-(rotation));
+    naviMap?.rotateTo(rotation);
   },[rotation])
 
   const angleRef = useRef(0);
