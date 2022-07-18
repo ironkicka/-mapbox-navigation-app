@@ -143,6 +143,7 @@ const NavigationTemplateContent: FC<Props> = () => {
         <button onClick={() => setProfile('walking')}>歩き</button>
         <button onClick={() => setProfile('driving')}>車</button>
         <span>{profile}</span>
+        <button onClick={() => checkDevicePositionPermission()}>許可</button>
       </div>
       <Map
         id='naviMap'
