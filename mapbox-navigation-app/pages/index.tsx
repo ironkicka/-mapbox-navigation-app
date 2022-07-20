@@ -1,10 +1,18 @@
 import {useEffect, useState, FC, useRef, useCallback} from 'react';
-import Map, {Layer, LayerProps, MapProvider, Marker, NavigationControl, Source, useMap} from 'react-map-gl';
+import Map, {
+  Layer,
+  LayerProps,
+  MapProvider,
+  Marker,
+  MarkerDragEvent,
+  NavigationControl,
+  Source,
+  useMap
+} from 'react-map-gl';
 import type {Feature} from 'geojson';
 //これがないとmarkerがちゃんと描画されない
 import 'mapbox-gl/dist/mapbox-gl.css';
 import Pin from "../components/pin";
-import CurrentPositionMarker from "../components/currentMarker";
 
 type Props = Readonly<{}>;
 
@@ -21,7 +29,11 @@ const layerStyle: LayerProps = {
     'line-opacity': 0.75,
   }
 };
+const dummyWaypoint = {lng: 139.67613617529912, lat: 35.739416990693314}
 
+const latLngToCoordStr = ({lat, lng}: { lat: number; lng: number }) => {
+  return `${lng},${lat}`
+}
 // 実験的なAPIのためTypeScriptに型が存在しないためここで記入
 declare let DeviceOrientationEvent: {
   requestPermission?: () => string;
@@ -43,12 +55,13 @@ const NavigationTemplateContent: FC<Props> = () => {
   const [profile, setProfile] = useState<'driving' | 'walking'>('driving');
   const [start, setStart] = useState<{ lat: number; lng: number } | null>(null);
   const [end, setEnd] = useState<{ lat: number; lng: number } | null>(null);
+  const [waypoint, setWaypoint] = useState<{ lat: number; lng: number } | null>(dummyWaypoint);
   const [routeGeoJson, setRouteGeoJson] = useState<Feature>();
   const [currentUserPosition, setCurrentUserPosition] = useState<{ lat: number; lng: number } | null>(null);
-  const [isNavigationMode,setIsNavigationMode] = useState(false)
-
-  const getCurrentPosition = ():Promise<{lat: number, lng: number}> => {
-    return new Promise<{lat: number, lng: number}>((resolve,reject)=>{
+  const [isNavigationMode, setIsNavigationMode] = useState(false)
+  const [instructions,setInstructions] = useState<string[]>([])
+  const getCurrentPosition = (): Promise<{ lat: number, lng: number }> => {
+    return new Promise<{ lat: number, lng: number }>((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(position => {
           console.log(position.coords.accuracy)
           const {latitude, longitude} = position.coords;
@@ -64,22 +77,25 @@ const NavigationTemplateContent: FC<Props> = () => {
 
 
   const onClick = (event: mapboxgl.MapLayerMouseEvent) => {
-    if(isNavigationMode) return;
+    if (isNavigationMode) return;
+    console.log(event.lngLat)
     setEnd({lat: event.lngLat.lat, lng: event.lngLat.lng})
   };
 
   useEffect(() => {
-    if (!naviMap||!isNavigationMode) return;
-    if (start && end) {
+    if (!naviMap || !isNavigationMode) return;
+    if (start && end && waypoint) {
       naviMap.flyTo({center: {lng: start.lng, lat: start.lat}, zoom: 18});
       (async () => {
         const query = await fetch(
-          `https://api.mapbox.com/directions/v5/mapbox/${profile}/${start.lng},${start.lat};${end.lng},${end.lat}?steps=true&geometries=geojson&access_token=${process.env.NEXT_PUBLIC_MAP_BOX_TOKEN}`,
+          `https://api.mapbox.com/directions/v5/mapbox/${profile}/${start.lng},${start.lat};${latLngToCoordStr(waypoint)};${end.lng},${end.lat}?steps=true&geometries=geojson&language=ja&access_token=${process.env.NEXT_PUBLIC_MAP_BOX_TOKEN}`,
           {method: 'GET'},
         );
         const json = await query.json();
         const data = json.routes[0];
         const route = data.geometry.coordinates;
+        const instructions = data.legs.flatMap((item:any)=>item.steps.map((step:any)=>step.maneuver.instruction))
+        setInstructions(instructions)
         const geojson = {
           type: 'Feature' as const,
           properties: {},
@@ -91,13 +107,14 @@ const NavigationTemplateContent: FC<Props> = () => {
         setRouteGeoJson(geojson);
       })();
     }
-  }, [profile, isNavigationMode,start,end]);
+  }, [profile, isNavigationMode, start, end, waypoint]);
 
   const [rotation, setRotation] = useState(0);
 
   const angleRef = useRef(0);
   useEffect(() => {
-    if (!window || !window.DeviceOrientationEvent) return () => {};
+    if (!window || !window.DeviceOrientationEvent) return () => {
+    };
 
     const handleMotionEvent = (event: DeviceOrientationEvent) => {
       // @ts-ignore
@@ -128,7 +145,7 @@ const NavigationTemplateContent: FC<Props> = () => {
     const currentPosition = await getCurrentPosition();
     console.log(currentPosition)
     setCurrentUserPosition(currentPosition)
-  },[setCurrentUserPosition])
+  }, [setCurrentUserPosition])
 
   const clearUpdatePositionPollingRef = useCallback(() => {
     if (currentPositionPollingRef.current === null) return;
@@ -144,31 +161,35 @@ const NavigationTemplateContent: FC<Props> = () => {
     }, 1000);
   }, [clearUpdatePositionPollingRef, updateCurrentUserPosition])
 
-  const onStartNavigation = ()=>{
+  const onStartNavigation = () => {
     checkDevicePositionPermission()
-    getCurrentPosition().then((res)=>{
+    getCurrentPosition().then((res) => {
       setStart(res)
     })
     setCurrentPositionPolling()
     setIsNavigationMode(true)
   }
 
-  useEffect(()=>{
-    if(!isNavigationMode) return;
+  useEffect(() => {
+    if (!isNavigationMode) return;
     naviMap?.rotateTo(rotation);
-  },[isNavigationMode,rotation])
+  }, [isNavigationMode, rotation])
 
-  const onFinishNavigation = ()=>{
+  const onFinishNavigation = () => {
     setIsNavigationMode(false)
     clearUpdatePositionPollingRef();
     setRouteGeoJson(undefined)
     naviMap?.resetNorth().setZoom(14);
   }
 
-  useEffect(()=>{
-    if(!currentUserPosition) return;
+  useEffect(() => {
+    if (!currentUserPosition) return;
     naviMap?.setCenter(currentUserPosition)
-  },[currentUserPosition])
+  }, [currentUserPosition])
+
+  const onDragWaypoint = (e: MarkerDragEvent) => {
+    setWaypoint(e.lngLat)
+  }
 
   return (
     <div>
@@ -176,9 +197,27 @@ const NavigationTemplateContent: FC<Props> = () => {
         <button onClick={() => setProfile('walking')}>歩き</button>
         <button onClick={() => setProfile('driving')}>車</button>
         <span>{profile}</span>
-        <button disabled={!end||isNavigationMode} onClick={onStartNavigation}>ナビゲーション開始</button>
+        <button disabled={!end || isNavigationMode} onClick={onStartNavigation}>ナビゲーション開始</button>
         <button disabled={!isNavigationMode} onClick={onFinishNavigation}>ナビゲーション終了</button>
       </div>
+      <div style={{position:'relative'}}>
+        {isNavigationMode &&
+        <div style={{
+          position: 'absolute',
+          top: 5,
+          left: 0,
+          width: '20%',
+          height: '50%',
+          background: '#fff',
+          zIndex: 1,
+          overflowY: "scroll"
+        }}>
+          <div style={{marginBottom: 10}}>Instruction</div>
+          {instructions.map((item, index) => {
+            return <div key={index}>{index + 1}.{item}</div>
+          })}
+        </div>
+        }
       <Map
         id='naviMap'
         initialViewState={{
@@ -206,13 +245,21 @@ const NavigationTemplateContent: FC<Props> = () => {
             <Layer {...layerStyle} />
           </Source>
         )}
-        <NavigationControl />
+        <NavigationControl/>
         {currentUserPosition &&
-        <Marker key={'currentPosition'} longitude={currentUserPosition.lng} latitude={currentUserPosition.lat} anchor="center">
+        <Marker key={'currentPosition'} longitude={currentUserPosition.lng} latitude={currentUserPosition.lat}
+                anchor="center">
           <Pin color={'blue'}/>
         </Marker>
         }
+        {waypoint &&
+        <Marker draggable={true} onDrag={onDragWaypoint} key={'dummyWaypoint'} longitude={waypoint.lng}
+                latitude={waypoint.lat} anchor="center">
+          <Pin color={'green'}/>
+        </Marker>
+        }
       </Map>
+      </div>
     </div>
   );
 };
