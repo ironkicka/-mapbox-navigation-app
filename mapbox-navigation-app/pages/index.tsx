@@ -170,6 +170,13 @@ const NavigationTemplateContent: FC<Props> = () => {
     setIsNavigationMode(true)
   }
 
+  useEffect(()=>{
+    getCurrentPosition().then((res) => {
+      setCurrentUserPosition(res)
+      setWaypoint({lat:res.lat+0.001,lng:res.lng+0.001})
+    })
+  },[])
+
   useEffect(() => {
     if (!isNavigationMode) return;
     naviMap?.rotateTo(rotation);
@@ -199,6 +206,7 @@ const NavigationTemplateContent: FC<Props> = () => {
         <span>{profile}</span>
         <button disabled={!end || isNavigationMode} onClick={onStartNavigation}>ナビゲーション開始</button>
         <button disabled={!isNavigationMode} onClick={onFinishNavigation}>ナビゲーション終了</button>
+        <span>地図をクリックして目的地を決定してください。緑色の中継地点マーカはドラッグで移動できます。</span>
       </div>
       <div style={{position:'relative'}}>
         {isNavigationMode &&
@@ -218,47 +226,49 @@ const NavigationTemplateContent: FC<Props> = () => {
           })}
         </div>
         }
-      <Map
-        id='naviMap'
-        initialViewState={{
-          longitude: 139.6632556,
-          latitude: 35.7340486,
-          zoom: 14,
-        }}
-        style={{width: '100%', height: '100vh'}}
-        mapStyle={process.env.NEXT_PUBLIC_MAP_BOX_STYLE}
-        mapboxAccessToken={process.env.NEXT_PUBLIC_MAP_BOX_TOKEN}
-        onClick={onClick}
-      >
-        {start &&
-        <Marker key={'startPoint'} longitude={start.lng} latitude={start.lat} anchor="center">
-          <Pin/>
-        </Marker>
-        }
-        {end &&
-        <Marker key={'endPoint'} longitude={end.lng} latitude={end.lat} anchor="center">
-          <Pin/>
-        </Marker>
-        }
-        {routeGeoJson && (
-          <Source id='myMap' type='geojson' data={routeGeoJson}>
-            <Layer {...layerStyle} />
-          </Source>
-        )}
-        <NavigationControl/>
         {currentUserPosition &&
-        <Marker key={'currentPosition'} longitude={currentUserPosition.lng} latitude={currentUserPosition.lat}
-                anchor="center">
-          <Pin color={'blue'}/>
-        </Marker>
+        <Map
+          id='naviMap'
+          initialViewState={{
+            longitude: currentUserPosition.lng,
+            latitude: currentUserPosition.lat,
+            zoom: 14,
+          }}
+          style={{width: '100%', height: '100vh'}}
+          mapStyle={process.env.NEXT_PUBLIC_MAP_BOX_STYLE}
+          mapboxAccessToken={process.env.NEXT_PUBLIC_MAP_BOX_TOKEN}
+          onClick={onClick}
+        >
+          {/*{start &&*/}
+          {/*<Marker key={'startPoint'} longitude={start.lng} latitude={start.lat} anchor="center">*/}
+          {/*  <Pin/>*/}
+          {/*</Marker>*/}
+          {/*}*/}
+          {end &&
+          <Marker key={'endPoint'} longitude={end.lng} latitude={end.lat} anchor="center">
+            <Pin/>
+          </Marker>
+          }
+          {routeGeoJson && (
+            <Source id='myMap' type='geojson' data={routeGeoJson}>
+              <Layer {...layerStyle} />
+            </Source>
+          )}
+          <NavigationControl/>
+          {currentUserPosition &&
+          <Marker key={'currentPosition'} longitude={currentUserPosition.lng} latitude={currentUserPosition.lat}
+                  anchor="center">
+            <Pin color={'blue'}/>
+          </Marker>
+          }
+          {waypoint &&
+          <Marker draggable={true} onDrag={onDragWaypoint} key={'dummyWaypoint'} longitude={waypoint.lng}
+                  latitude={waypoint.lat} anchor="center">
+            <Pin color={'green'}/>
+          </Marker>
+          }
+        </Map>
         }
-        {waypoint &&
-        <Marker draggable={true} onDrag={onDragWaypoint} key={'dummyWaypoint'} longitude={waypoint.lng}
-                latitude={waypoint.lat} anchor="center">
-          <Pin color={'green'}/>
-        </Marker>
-        }
-      </Map>
       </div>
     </div>
   );
